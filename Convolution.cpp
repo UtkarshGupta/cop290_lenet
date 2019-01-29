@@ -1,227 +1,145 @@
-#include <iostream>
+#include <cmath>
 #include <fstream>
+#include <iostream>
 #include <string>
 #include <vector>
-#include <cmath>
-#include <algorithm>
-using namespace std;
 
-typedef vector<float> Vector;
-typedef vector<vector<float>> Matrix;
-
-void printHelp() {
-    ifstream in("./README.md");
-    if (!in) {
-        cout << "README.md missing.\n";
-        return;
-    }
-
-    string a;
-    for (int i = 0; i <= 18; i++) {
-        getline(in, a);
-        cout << a << endl;
-    }
+namespace openblas {
+    #include <cblas.h>
+}
+namespace intelmkl {
+    #include <mkl.h>
 }
 
-int main(int argc, char** argv) {
-    bool padding = false, matrixmult = false;
-    int n, m, p = 0;
-    string matrix_file, kernel_file;
+using namespace std;
 
-    // Arguments processing
-    if (argc != 7) {
-        cout << "Incorrect number Arguments, see format below.\n";
-        printHelp();
-        return 1;
+#define THREADS 8
+
+vector<float> kernel, matrix, output, sparse;
+
+void* func(void *tid) {
+    long id = (long) tid;
+    int r = output.capacity();
+    int c = matrix.capacity();
+
+    for (int i = id*r/THREADS; i < (id+1)*r/THREADS; i++) {
+        for (int j = 0; j < c; j++) {
+            output[i] += sparse[i*c + j]*matrix[j];
+        }
     }
 
+    pthread_exit(NULL);
+}
+
+int Convolution(char** argv) {
     string str = argv[1];
-    if (str.find("withpadding") != string::npos) {
-        padding = true;
-    } else if (str.find("withoutpadding") != string::npos) {
-        padding = false;
-    } else {
-        cout << "Error in Argument 1, see format below.\n";
-        printHelp();
-        return 1;
+    bool matrixmult = str.find("matrixmult") != string::npos;
+    bool flip = str.find("flip") != string::npos;
+    int blas = -1;
+    if (str.find("pthread") != string::npos) {
+        blas = 0;
+    } else if (str.find("openblas") != string::npos) {
+        blas = 1;
+    } else if (str.find("intelmkl") != string::npos) {
+        blas = 2;
+    } else if (str.find("quick") != string::npos) {
+        blas = 3;
     }
-    if (str.find("matrixmult") != string::npos) {
-        matrixmult = true;
-    } else if (str.find("convolution") != string::npos) {
-        matrixmult = false;
-    } else {
-        cout << "Error in Argument 1, see format below.\n";
-        printHelp();
-        return 1;
-    }
-
-    if (strtol(argv[2], NULL, 10) != 0) {
-        p = atoi(argv[2]);
-    } else if (padding) {
-        cout << "Error in Argument 2, see format below.\n";
-        printHelp();
-        return 1;
-    }
-    if (!padding) {
-        p = 0;
-    }
-
-    if (strtol(argv[3], NULL, 10) == 0) {
-        kernel_file = argv[3];
-    } else {
-        cout << "Error in Argument 3, see format below.\n";
-        printHelp();
-        return 1;
-    }
-
-    if (strtol(argv[4], NULL, 10) != 0) {
-        m = atoi(argv[4]);
-    } else {
-        cout << "Error in Argument 4, see format below.\n";
-        printHelp();
-        return 1;
-    }
-
-    if (strtol(argv[5], NULL, 10) == 0) {
-        matrix_file = argv[5];
-    } else {
-        cout << "Error in Argument 5, see format below.\n";
-        printHelp();
-        return 1;
-    }
-
-    if (strtol(argv[6], NULL, 10) != 0) {
-        n = atoi(argv[6]);
-    } else {
-        cout << "Error in Argument 6, see format below.\n";
-        printHelp();
-        return 1;
-    }
-
-    // Input processing
-    ifstream kernelf(kernel_file);
-    ifstream matrixf(matrix_file);
-
-    if (!kernelf) {
-        cout << "Cannot open input file: " << kernel_file << ".\nSee input format below.\n";
-        printHelp();
-        return 1;
-    } else if (count(istreambuf_iterator<char>(kernelf), istreambuf_iterator<char>(), '\n') != m*m) {
-        cout << "Input file length wrong.\n" << "See input format below.\n";
-        printHelp();
-        return 1;
-    }
-    kernelf.clear();
-    kernelf.seekg(0);
-    if (!matrixf) {
-        cout << "Cannot open input file: " << matrix_file << ".\nSee input format below.\n";
-        printHelp();
-        return 1;
-    } else if (count(istreambuf_iterator<char>(matrixf), istreambuf_iterator<char>(), '\n') != n*n) {
-        cout << "Input file length wrong.\n" << "See input format below.\n";
-        printHelp();
-        return 1;
-    }
-    matrixf.clear();
-    matrixf.seekg(0);
+    int p = atoi(argv[2]);
+    ifstream kernelf (argv[3]);
+    int m = atoi(argv[4]);
+    ifstream matrixf (argv[5]);
+    int n = atoi(argv[6]) + 2*p;
+    int o = n - m + 1;
 
     string a;
-    int i = 0, j = 0;
-    Matrix kernel;
-    kernel.resize(m, vector<float>(m, 0.0));
-    while (getline(kernelf, a)) {
-        if (i == m) {
-            i = 0;
-            j++;
+    int t;
+    kernel.reserve(m*m);
+    if (flip) {
+        t = m*m - 1;
+        while (getline(kernelf, a)) {
+            if (t < 0) {
+                t += m*m - 1;
+            }
+            kernel[t] = stof(a);
+            t -= m;
         }
-        kernel[i++][j] = stof(a);
+    } else {
+        t = 0;
+        while (getline(kernelf, a)) {
+            if (t >= m*m) {
+                t -= m*m - 1;
+            }
+            kernel[t] = stof(a);
+            t += m;
+        }
     }
-
-    i = p; j = p;
-    Matrix matrix;
-    matrix.resize(n + 2*p, vector<float>(n + 2*p, 0.0));
+    t = n*p + p;
+    matrix.reserve(n*n);
     while (getline(matrixf, a)) {
-        if (i == n + p) {
-            i = p;
-            j++;
+        if (t >= (n - p)*n) {
+            t -= (n - 2*p)*n - 1;
         }
-        matrix[i++][j] = stof(a);
+        matrix[t] = stof(a);
+        t += n;
     }
 
-    // Showing input
-    cout << "Input Kernel: \n";
-    for(int i = 0; i < m; i++) {
-        for(int j = 0; j < m; j++) {
-            cout << kernel[i][j] << "\t";
-        }
-        cout << "\n";
-    }
-    cout << "Input Matrix: \n";
-    for(int i = p; i < n + p; i++) {
-        for(int j = p; j < n + p; j++) {
-            cout << matrix[i][j] << "\t";
-        }
-        cout << "\n";
-    }
+    int r, c;
+    output.reserve(o*o);
     if (matrixmult) {
-        cout << "Using Matrix Multiplication.\n";
-    } else {
-        cout << "Using Convolution.\n";
-    }
+        r = pow(o, 2);
+        c = pow(n, 2);
+        sparse.reserve(r*c);
 
-    if (padding) {
-        cout << "Padding: Enabled.\n";
-        cout << "Padding size: " << p << "\n";
-    } else {
-        cout << "Padding: Disabled.\n";
-    }
-    cout << "\n";
-
-    // Processing
-    int output_size = n - m + 2*p + 1;
-    Matrix output;
-    output.resize(output_size, vector<float>(output_size, 0.0));
-    if (matrixmult) {
-        n = n + 2*p;
-        int rows = pow(output_size, 2);
-        int cols = pow(n, 2);
-        int skipped = 0;
-
-        Vector x;
-        x.resize(cols);
-        Matrix sparse;
-        sparse.resize(rows, vector<float>(cols, 0.0));
-
-        for (int i = 0; i < cols; i++) {
-            x[i] = matrix[i/n][i%n];
-        }
-        for (int i = 0; i < cols; i++) {
-            if ((i % n) < output_size && ((i / n) % n) < output_size) {
+        t = 0;
+        for (int i = 0; i < c; i++) {
+            if ((i % n) < o && ((i / n) % n) < o) {
                 for (int j = 0; j < m; j++) {
                     for (int k = 0; k < m; k++) {
-                        sparse[i - skipped][i + j * n + k] = kernel[j][k];
+                        sparse[(i - t)*c + i + j*n + k] = kernel[j*m + k];
+                    }
+                }
+
+                if (blas == 3) {
+                    for (int j = (i - t)*c + i; j <= (i - t)*c + i + (m-1)*(n+1); j++) {
+                        output[i - t] += sparse[j]*matrix[j%c];
                     }
                 }
             } else {
-                skipped++;
+                t++;
+            }
+
+            if (blas == -1) {
+                for (int j = 0; j < r; j++) {
+                    output[j] += sparse[j*c + i]*matrix[i];
+                }
             }
         }
 
-        for (int i = 0; i < rows; i++) {
-            for (int j = 0; j < cols; j++) {
-                output[i/output_size][i%output_size] += sparse[i][j]*x[j];
+        if (blas == 0) {
+            pthread_t t[THREADS];
+            for (int i = 0; i < THREADS; i++) {
+                pthread_create(&t[i], NULL, func, (void *) (intptr_t)i);
             }
+            for (int i = 0; i < THREADS; i++) {
+                pthread_join(t[i], NULL);
+            }
+        } else if (blas == 1) {
+            openblas::cblas_sgemv(openblas::CblasRowMajor, openblas::CblasNoTrans,
+                    r, c, 1, &sparse[0], c, &matrix[0], 1, 0, &output[0], 1);
+        } else if (blas == 2) {
+            intelmkl::cblas_sgemv(intelmkl::CblasRowMajor, intelmkl::CblasNoTrans,
+                    r, c, 1, &sparse[0], c, &matrix[0], 1, 0, &output[0], 1);
         }
     } else {
-        int r, c;
-        for(int x = 0; x < output_size; x++) {
-            for(int y = 0; y < output_size; y++) {
-                for (int u = 0; u < m; u++) {
-                    for (int v = 0; v < m; v++) {
-                        r = x-u+1;
-                        c = y-v+1;
-                        if (r >= 0 && r < n+2*p && r >= 0 && c < n+2*p) {
-                            output[x][y] += kernel[u][v] * matrix[r][c];
+        for(int x = 0; x < o; x++) {
+            for(int y = 0; y < o; y++) {
+                for (int u = 0; u < n; u++) {
+                    for (int v = 0; v < n; v++) {
+                        r = x - u + m - 1;
+                        c = y - v + m - 1;
+                        if (r >= 0 && r < m && c >= 0 && c < m) {
+                            output[x*o + y] += kernel[r*m + c]*matrix[u*n + v];
                         }
                     }
                 }
@@ -229,12 +147,12 @@ int main(int argc, char** argv) {
         }
     }
 
-    // Output
-    cout << "Output: \n";
-    for(int i = 0; i < output_size; i++) {
-        for(int j = 0; j < output_size; j++) {
-            cout << output[i][j] << "\t";
+    for(int i = 0; i < o; i++) {
+        for(int j = 0; j < o; j++) {
+            cout << output[i*o + j] << "\t";
         }
         cout << "\n";
     }
+
+    return 0;
 }
