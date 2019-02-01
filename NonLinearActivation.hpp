@@ -1,6 +1,10 @@
 #ifndef NONLINEARACTIVATION_H
 #define NONLINEARACTIVATION_H
 
-int NonLinearActivation(char** argv);
+#include <vector>
+
+using namespace std;
+
+void NonLinearActivation(bool relu, vector<float>& matrix, int r, int c);
 
 #endif

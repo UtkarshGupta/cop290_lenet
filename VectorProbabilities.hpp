@@ -1,6 +1,10 @@
 #ifndef VECTORPROBABILITIES_H
 #define VECTORPROBABILITIES_H
 
-int VectorProbabilities(char** argv);
+#include <vector>
+
+using namespace std;
+
+void VectorProbabilities(bool sigmoid, vector<float>& array, int a);
 
 #endif
