@@ -2,9 +2,8 @@
 #define NONLINEARACTIVATION_H
 
 #include <vector>
+typedef std::vector<float> mat;
 
-using namespace std;
-
-void NonLinearActivation(bool relu, vector<float>& matrix, int r, int c);
+void NonLinearActivation(bool relu, mat& matrix);
 
 #endif

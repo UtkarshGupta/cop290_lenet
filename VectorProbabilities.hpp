@@ -2,9 +2,8 @@
 #define VECTORPROBABILITIES_H
 
 #include <vector>
+typedef std::vector<float> mat;
 
-using namespace std;
-
-void VectorProbabilities(bool sigmoid, vector<float>& array, int a);
+void VectorProbabilities(bool softmax, mat& array);
 
 #endif

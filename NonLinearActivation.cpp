@@ -1,17 +1,16 @@
 #include <cmath>
 #include <vector>
 
-using namespace std;
+typedef std::vector<float> mat;
 
-void NonLinearActivation(bool relu, vector<float>& matrix, int r, int c) {
+void NonLinearActivation(bool relu, mat& matrix) {
+    int m = matrix.size();
     if (relu) {
-        for(int i = 0; i < r*c; i++) {
-            if (matrix[i] < 0) {
-                matrix[i] = 0;
-            }
+        for (int i = 0; i < m; i++) {
+            matrix[i] = fmax(matrix[i], 0);
         }
     } else {
-        for(int i = 0; i < r*c; i++) {
+        for (int i = 0; i < m; i++) {
             matrix[i] = tanh(matrix[i]);
         }
     }

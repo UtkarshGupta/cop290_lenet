@@ -2,10 +2,8 @@
 #define SUBSAMPLING_H
 
 #include <vector>
+typedef std::vector<float> mat;
 
-using namespace std;
-
-void SubSampling(bool max, int f, int s,
-        vector<float>& matrix, int m, vector<float>& output, int o);
+void SubSampling(bool max, mat& output, mat& matrix, int f, int s);
 
 #endif

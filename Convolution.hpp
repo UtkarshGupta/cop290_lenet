@@ -2,10 +2,8 @@
 #define CONVOLUTION_H
 
 #include <vector>
+typedef std::vector<float> mat;
 
-using namespace std;
-
-void Convolution(bool conv, int blas, int s,
-        vector<float>& filter, int f, vector<float>& matrix, int m, vector<float>& output, int o);
+void Convolution(int blas, mat& output, mat& matrix, mat& filter);
 
 #endif

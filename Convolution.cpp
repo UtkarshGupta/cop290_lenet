@@ -9,16 +9,34 @@ namespace intelmkl {
     #include <mkl.h>
 }
 
-using namespace std;
-
 #define THREADS 8
+typedef std::vector<float> mat;
 
-vector<float> filterg, outputg, toeplitz;
+mat toeplitz, outputg, matrixg, filterg;
 
-void* func(void *tid) {
+void* conv(void *tid) {
     long id = (long) tid;
-    int r = outputg.capacity();
-    int c = filterg.capacity();
+    int o = sqrt(outputg.size());
+    int m = sqrt(matrixg.size());
+    int f = sqrt(filterg.size());
+
+    for (int i = id*o/THREADS; i < (id+1)*o/THREADS; i++) {
+        for (int j = 0; j < o; j++) {
+            for (int x = i; x < i+f; x++) {
+                for (int y = j; y < j+f; y++) {
+                    outputg[i*o + j] += filterg[(x-i)*f + y-j] * matrixg[x*m + y];
+                }
+            }
+        }
+    }
+
+    pthread_exit(NULL);
+}
+
+void* mm(void *tid) {
+    long id = (long) tid;
+    int r = outputg.size();
+    int c = filterg.size();
 
     for (int i = id*r/THREADS; i < (id+1)*r/THREADS; i++) {
         for (int j = 0; j < c; j++) {
@@ -29,14 +47,33 @@ void* func(void *tid) {
     pthread_exit(NULL);
 }
 
-void Convolution(bool conv, int blas, int s,
-        vector<float>& filter, int f, vector<float>& matrix, int m, vector<float>& output, int o) {
-    if (conv) {
-        for(int i = 0; i < o * s; i+=s) {
-            for(int j = 0; j < o * s; j+=s) {
-                for (int x = i; x < i + f; x++) {
-                    for (int y = j; y < j + f; y++) {
-                        output[i/s*o + j/s] += filter[(x-i)*f + y-j] * matrix[x*m + y];
+void Convolution(int blas, mat& output, mat& matrix, mat& filter) {
+    int o = sqrt(output.size());
+    int m = sqrt(matrix.size());
+    int f = sqrt(filter.size());
+
+    if (blas == 5) {
+        outputg.swap(output);
+        matrixg.swap(matrix);
+        filterg.swap(filter);
+
+        pthread_t t[THREADS];
+        for (int i = 0; i < THREADS; i++) {
+            pthread_create(&t[i], NULL, conv, (void *) (intptr_t)i);
+        }
+        for (int i = 0; i < THREADS; i++) {
+            pthread_join(t[i], NULL);
+        }
+
+        output.swap(outputg);
+        matrix.swap(matrixg);
+        filter.swap(filterg);
+    } else if (blas == 4) {
+        for (int i = 0; i < o; i++) {
+            for (int j = 0; j < o; j++) {
+                for (int x = i; x < i+f; x++) {
+                    for (int y = j; y < j+f; y++) {
+                        output[i*o + j] += filter[(x-i)*f + y-j] * matrix[x*m + y];
                     }
                 }
             }
@@ -44,45 +81,45 @@ void Convolution(bool conv, int blas, int s,
     } else {
         int r = pow(o, 2);
         int c = pow(f, 2);
-        toeplitz.reserve(r*c);
+        toeplitz.resize(r*c);
 
         int t = 0;
-        for(int i = 0; i < o * s; i+=s) {
-            for(int j = 0; j < o * s; j+=s) {
-                for (int x = i; x < i + f; x++) {
-                    for (int y = j; y < j + f; y++) {
+        for (int i = 0; i < o; i++) {
+            for (int j = 0; j < o; j++) {
+                for (int x = i; x < i+f; x++) {
+                    for (int y = j; y < j+f; y++) {
                         toeplitz[t++] = matrix[x*m + y];
                     }
                 }
             }
         }
 
-        if (blas == -1) {
-            for (int i = 0; i < r; i++) {
-                for (int j = 0; j < c; j++) {
-                    output[i] += toeplitz[i*c + j]*filter[j];
-                }
-            }
-        } else if (blas == 0) {
-            filterg.swap(filter);
+        if (blas == 3) {
             outputg.swap(output);
+            filterg.swap(filter);
 
             pthread_t t[THREADS];
             for (int i = 0; i < THREADS; i++) {
-                pthread_create(&t[i], NULL, func, (void *) (intptr_t)i);
+                pthread_create(&t[i], NULL, mm, (void *) (intptr_t)i);
             }
             for (int i = 0; i < THREADS; i++) {
                 pthread_join(t[i], NULL);
             }
 
-            filter.swap(filterg);
             output.swap(outputg);
-        } else if (blas == 1) {
+            filter.swap(filterg);
+        } else if (blas == 2) {
             openblas::cblas_sgemv(openblas::CblasRowMajor, openblas::CblasNoTrans,
                     r, c, 1, &toeplitz[0], c, &filter[0], 1, 0, &output[0], 1);
-        } else if (blas == 2) {
+        } else if (blas == 1) {
             intelmkl::cblas_sgemv(intelmkl::CblasRowMajor, intelmkl::CblasNoTrans,
                     r, c, 1, &toeplitz[0], c, &filter[0], 1, 0, &output[0], 1);
+        } else {
+            for (int i = 0; i < r; i++) {
+                for (int j = 0; j < c; j++) {
+                    output[i] += toeplitz[i*c + j]*filter[j];
+                }
+            }
         }
     }
 }

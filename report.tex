@@ -1,0 +1,122 @@
+\documentclass{article}
+\usepackage[margin=0.5in]{geometry}
+\usepackage{graphicx}
+\usepackage{natbib}
+\usepackage{url}
+
+\title{COP 290: Accelerating Matrix Multiplication}
+\date{2019-02-14}
+\author{Utkarsh Gupta (2016ME20756) \\ Utsav Das (2016CH10090)}
+
+\begin{document}
+    \pagenumbering{gobble}
+    \maketitle
+
+    \newpage
+    \pagenumbering{arabic}
+    \section{Overview of implemented libraries}
+    \subsection{Convolution (Discrete)}
+    $$ (f*g)[n] = \sum_{m=-\infty}^{\infty} f[n - m] * g[m] $$
+    \subsection{Subsampling}
+    Downsample the matrices to save computation time and trainable parameters requirement
+    \subsubsection{Max Pooling}
+    Use the maximum of a subsample to downsample
+    \subsubsection{Avg Pooling}
+    Use the average of a subsample to downsample
+    \subsection{Non Linear Activation}
+    \subsubsection{ReLU: Rectified Linear Unit}
+    $$ f(x) = max(0, x) $$
+    \subsubsection{tanh}
+    $$ f(x) = tanh(x) $$
+    \subsection{Vector Probabilities}
+    \subsubsection{softmax}
+    $$ f(x_i) = \frac{exp(x_i)}{\sum_{j=0}^{k} e^{-x_i}} $$
+    \subsubsection{sigmoid}
+    $$ f(x_i) = \frac{\mathrm{1}}{\mathrm{1} + e^{-x_i}} $$
+
+    \newpage
+    \section{Convolution as matrix multiplication}
+    Toeplitz matrix is constructed from the input matrix. Then the toeplitz matrix is multiplied with the filter in row major form. The rate determing step is the matrix-vector multiplication.
+
+    \begin{figure}[!htb]
+    \centering
+        \includegraphics[width=6in]{old_gen_mm.eps}
+        \caption{Matrix Multiplication (without optimization)}
+    \end{figure}
+    \begin{figure}[!htb]
+    \centering
+        \includegraphics[width=6in]{old_gen_conv.eps}
+        \caption{Convolution (without optimization)}
+    \end{figure}
+
+    \newpage
+    \subsection{Accelerating matrix multiplication}
+    To calculate the speeds for different convolution modes, we pass an additional argument "gen" to generate a matrix with all elements equal to a randomly generated float between 0 and 100. \\
+    \subsubsection{Using OpenBLAS\cite{openblas} and Intel MKL\cite{intelmkl}}
+    We'll be using cblas\_sgemv can use libraries such as openblas and intelmkl for matrix-vector multiplication
+
+    \begin{figure}[!htb]
+    \centering
+        \includegraphics[width=6in]{old_gen_mm_openblas.eps}
+        \caption{Matrix Multiplication (with openblas)}
+    \end{figure}
+    \begin{figure}[!htb]
+    \centering
+        \includegraphics[width=6in]{old_gen_mm_intelmkl.eps}
+        \caption{Matrix Multiplication (with intelmkl)}
+    \end{figure}
+
+    \newpage
+    \subsubsection{Using pthread}
+    We can also use pthread to run our matrix-vector multiplication parallely.
+    \begin{figure}[!htb]
+    \centering
+        \includegraphics[width=6in]{old_gen_mm_pthread.eps}
+        \caption{Matrix Multiplication (with pthread)}
+    \end{figure}
+    \begin{figure}[!htb]
+    \centering
+        \includegraphics[width=6in]{old_gen_conv_pthread.eps}
+        \caption{Convolution (with pthread)}
+    \end{figure}
+
+    \newpage
+    \section{Further optimization using g++ flags}
+    g++ provides many compilation flags which significantly increase the performance.
+    Flags used by us: "-Ofast -flto -fuse-linker-plugin -funroll-loops"
+
+    \begin{figure}[!htb]
+    \centering
+        \includegraphics[width=6in]{gen_mm.eps}
+        \caption{Matrix Multiplication (without optimization)}
+    \end{figure}
+    \begin{figure}[!htb]
+    \centering
+        \includegraphics[width=6in]{gen_conv.eps}
+        \caption{Convolution (without optimization)}
+    \end{figure}
+    \begin{figure}[!htb]
+    \centering
+        \includegraphics[width=6in]{gen_mm_pthread.eps}
+        \caption{Matrix Multiplication (with pthread)}
+    \end{figure}
+    \begin{figure}[!htb]
+    \centering
+        \includegraphics[width=6in]{gen_conv_pthread.eps}
+        \caption{Convolution (with pthread)}
+    \end{figure}
+    \begin{figure}[!htb]
+    \centering
+        \includegraphics[width=6in]{gen_mm_openblas.eps}
+        \caption{Matrix Multiplication (with openblas)}
+    \end{figure}
+    \begin{figure}[!htb]
+    \centering
+        \includegraphics[width=6in]{gen_mm_intelmkl.eps}
+        \caption{Matrix Multiplication (with intelmkl)}
+    \end{figure}
+
+    \clearpage
+    \bibliography{report}
+    \bibliographystyle{plain}
+\end{document}
