@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <opencv2/imgcodecs.hpp>
+#include <opencv2/imgproc.hpp>
 
 #include "lenet.hpp"
 #include "Convolution.hpp"
@@ -26,23 +27,23 @@ void printHelp(int f, int a = -1) {
     ifstream in("README.md");
     if (!in) {
         cout << "README.md missing.\n";
-        return;
+        exit(EXIT_FAILURE);
     }
 
     int x, y;
     switch (f) {
         case 0:
-                x = 1; y = 12; break;
+                x = 1; y = 10; break;
         case 1:
-                x = 14; y = 36; break;
+                x = 12; y = 34; break;
         case 2:
-                x = 38; y = 52; break;
+                x = 36; y = 50; break;
         case 3:
-                x = 54; y = 64; break;
+                x = 52; y = 62; break;
         case 4:
-                x = 66; y = 75; break;
+                x = 64; y = 73; break;
         default:
-                x = 1; y = 75; break;
+                x = 1; y = 73; break;
     }
 
     string l;
@@ -66,7 +67,7 @@ inline int toInt(const char* argv[], int f, int a) {
     return stoi(s);
 }
 
-void readMatrix(const char* path, mat& matrix, int r, int c, int p, bool flip = false) {
+void readMatrix(const char* path, mat& matrix, int r, int c = 1, int p = 0, bool flip = false) {
     ifstream file (path);
     if (!file) {
         cout << "Cannot open input file: " << path << "\n";
@@ -77,10 +78,10 @@ void readMatrix(const char* path, mat& matrix, int r, int c, int p, bool flip = 
         exit(EXIT_FAILURE);
     }
     file.seekg(0);
+    matrix.resize(r*c);
 
     int t;
     string l;
-    matrix.resize(r*c);
     if (flip) {
         t = (r - p)*c - p - 1;
         while (getline(file, l)) {
@@ -112,6 +113,10 @@ void printMatrix(mat& matrix, int r, int c) {
 }
 
 int main(int argc, char const *argv[]) {
+    if (argc == 1) {
+        printHelp(-1);
+    }
+
     string arg = argv[1];
     if (arg.find("conv") != string::npos || arg.find("mm") != string::npos) {
         if (argc != 7) {
@@ -150,7 +155,7 @@ int main(int argc, char const *argv[]) {
             readMatrix(argv[3], matrix, m, m, p);
         } else {
             srand(static_cast <unsigned>(time(0)));
-            matrix.resize(m*m, static_cast <float>(rand()) / (static_cast <float>(RAND_MAX/100)));
+            matrix.resize(m*m, static_cast <float>(rand()) / static_cast <float>(RAND_MAX/255));
         }
         readMatrix(argv[5], filter, f, f, 0, flip);
 
@@ -172,7 +177,7 @@ int main(int argc, char const *argv[]) {
 
         mat output, matrix;
         output.resize(o*o);
-        readMatrix(argv[2], matrix, m, m, 0);
+        readMatrix(argv[2], matrix, m, m);
 
         SubSampling(arg.find("max") != string::npos, output, matrix, f, s);
         printMatrix(output, o, o);
@@ -187,7 +192,7 @@ int main(int argc, char const *argv[]) {
         int c = toInt(argv, 3, 4);
 
         mat matrix;
-        readMatrix(argv[2], matrix, r, c, 0);
+        readMatrix(argv[2], matrix, r, c);
 
         NonLinearActivation(arg.find("relu") != string::npos, matrix);
         printMatrix(matrix, r, c);
@@ -201,7 +206,7 @@ int main(int argc, char const *argv[]) {
         int a = toInt(argv, 4, 3);
 
         mat array;
-        readMatrix(argv[2], array, a, 1, 0);
+        readMatrix(argv[2], array, a);
 
         VectorProbabilities(arg.find("softmax") != string::npos, array);
         printMatrix(array, a, 1);
@@ -210,30 +215,36 @@ int main(int argc, char const *argv[]) {
             printHelp(0, 0);
         }
 
-        cv::Mat imr = cv::imread(argv[2], cv::IMREAD_GRAYSCALE);
-        if (!imr.data) {
+        cv::Mat img = cv::imread(argv[2], cv::IMREAD_GRAYSCALE);
+        if (!img.data) {
             cout << "Cannot open input file: " << argv[2] << "\n";
             exit(EXIT_FAILURE);
         }
 
         mat image;
-        image.assign(imr.datastart, imr.dataend);
+        if (img.rows == 28 && img.cols == 28) {
+            image.assign(img.datastart, img.dataend);
+        } else {
+            cv::Mat img2;
+            cv::resize(img, img2, cv::Size(28, 28), 0, 0, cv::INTER_AREA);
+            image.assign(img2.datastart, img2.dataend);
+        }
 
         if (arg.find("invert") == string::npos) {
             for (int i = 0; i < 28; i++) {
                 for (int j = 0; j < 28; j++) {
-                    image[i*28 + j] = 255 - image[i*28 + j];
+                    image[i*28 + j] = 1 - image[i*28 + j]/255;
+                }
+            }
+        } else {
+            for (int i = 0; i < 28; i++) {
+                for (int j = 0; j < 28; j++) {
+                    image[i*28 + j] /= 255;
                 }
             }
         }
 
         lenet(image);
-    } else if (arg.find("errorrate") != string::npos) {
-        if (argc != 2) {
-            printHelp(0, 0);
-        }
-
-        lenet(*(new mat));
     } else {
         cout << "Unrecognized command, see format below.\n";
         printHelp(-1);

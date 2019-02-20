@@ -1,25 +1,23 @@
 # Digit recognition
 ## Arguments
-### Argument 1: errorrate/recognize_ + invert [String]
-                errorrate: iterate over the MNIST test set and find the digit recognition error rate
+### Argument 1: recognize_ + invert [String]
                 recognize: recognize the digit in the given image file
-                invert [Optional]: inverts input image [recognize only]
-### Argument 2: Image [File Location] [Optional]
+                invert [Optional]: inverts input image
+### Argument 2: Image [File Location]
                 Must be a 28x28 image file with digit in black or use invert
 
 ## Examples
-                ./main.out errorrate
-                ./main.out recognize_invert image.png
+                ./main.out recognize image.png
 
 # Convolution [Stride = 1]
 ## Speed: gen_mm < gen_mm_intelmkl ~ gen_mm_openblas < gen_mm_pthread << gen_conv << gen_conv_pthread
 ## Arguments
 ### Argument 1: gen_ + conv/mm_ + flip_ + intelmkl/openblas/pthread [String]
-                gen [Optional]: generates matrix with all elements equal to a random float
                 conv: filter flipped / mm: filter not flipped
+                gen [Optional]: generates matrix with all elements equal to a random float
                 flip [Optional]: flip filter
                 pthread [Optional]: run conv/mm parallely
-                intelmkl/openblas [Optional]: use intelmkl/openblas blas operations [mm only]
+                intelmkl/openblas [Optional/mm only]: use intelmkl/openblas blas operations
 ### Argument 2: Padding Size [Integer >= 0]
                 Enter 0 if you don't require padding
 ### Argument 3: Input [File Location]
@@ -33,7 +31,7 @@
 
 ## Examples
                 ./main.out conv_pthread 0 matrix.txt 5 filter.txt 3
-                ./main.out mm_flip_pthread 0 matrix.txt 5 filter.txt 3
+                ./main.out mm_flip_pthread 1 matrix.txt 5 filter.txt 3
 
 # SubSampling
 ## Arguments

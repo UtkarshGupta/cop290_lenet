@@ -2,8 +2,9 @@
 #define LENET_H
 
 #include <vector>
+
 typedef std::vector<float> mat;
 
-void lenet(mat image);
+void lenet(mat& image);
 
 #endif

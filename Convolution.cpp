@@ -1,7 +1,6 @@
 #include <cmath>
 #include <iostream>
 #include <vector>
-
 namespace openblas {
     #include <cblas.h>
 }
@@ -10,6 +9,7 @@ namespace intelmkl {
 }
 
 #define THREADS 8
+
 typedef std::vector<float> mat;
 
 mat toeplitz, outputg, matrixg, filterg;
@@ -24,7 +24,7 @@ void* conv(void *tid) {
         for (int j = 0; j < o; j++) {
             for (int x = i; x < i+f; x++) {
                 for (int y = j; y < j+f; y++) {
-                    outputg[i*o + j] += filterg[(x-i)*f + y-j] * matrixg[x*m + y];
+                    outputg[i*o + j] += matrixg[x*m + y]*filterg[(x-i)*f + y-j];
                 }
             }
         }
@@ -73,7 +73,7 @@ void Convolution(int blas, mat& output, mat& matrix, mat& filter) {
             for (int j = 0; j < o; j++) {
                 for (int x = i; x < i+f; x++) {
                     for (int y = j; y < j+f; y++) {
-                        output[i*o + j] += filter[(x-i)*f + y-j] * matrix[x*m + y];
+                        output[i*o + j] += matrix[x*m + y]*filter[(x-i)*f + y-j];
                     }
                 }
             }

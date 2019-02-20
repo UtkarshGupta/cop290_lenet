@@ -1,6 +1,6 @@
 CC = g++
 CFLAGS = -Wall -Ofast -flto -fuse-linker-plugin -funroll-loops
-OBJECTS = main.o lenet.o Convolution.o SubSampling.o NonLinearActivation.o VectorProbabilities.o
+OBJECTS = main.o lenet.o Convolution.o NonLinearActivation.o SubSampling.o VectorProbabilities.o
 OPENBLAS = /usr/lib/x86_64-linux-gnu/libopenblas.a
 INTELMKL = -Wl,--start-group \
 			${MKLROOT}/lib/intel64/libmkl_core.a \
@@ -20,9 +20,9 @@ lenet.o:
 	$(CC) $(CFLAGS) -c lenet.cpp
 Convolution.o:
 	$(CC) $(CFLAGS) -c Convolution.cpp -m64 -I${MKLROOT}/include
-SubSampling.o:
-	$(CC) $(CFLAGS) -c SubSampling.cpp
 NonLinearActivation.o:
 	$(CC) $(CFLAGS) -c NonLinearActivation.cpp
+SubSampling.o:
+	$(CC) $(CFLAGS) -c SubSampling.cpp
 VectorProbabilities.o:
 	$(CC) $(CFLAGS) -c VectorProbabilities.cpp
